@@ -74,14 +74,22 @@ export function TaskForm({
   onCancel,
   isLoading = false,
 }: TaskFormProps) {
+
+  // Process initialData to ensure dueDate is a Date object or null
+  const processedInitialData = initialData ? {
+    ...initialData,
+    dueDate: initialData.dueDate ? new Date(initialData.dueDate) : null
+  } : null;
+
+
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
     defaultValues: {
-      title: initialData?.title || "",
-      description: initialData?.description || "",
-      dueDate: initialData?.dueDate || null,
-      priority: initialData?.priority || "Medium",
-      status: initialData?.status || "To Do",
+      title: processedInitialData?.title || "",
+      description: processedInitialData?.description || "",
+      dueDate: processedInitialData?.dueDate || null,
+      priority: processedInitialData?.priority || "Medium",
+      status: processedInitialData?.status || "To Do",
     },
   });
 
@@ -123,6 +131,7 @@ export function TaskForm({
                   placeholder="Add a description for the task (optional)"
                   className="resize-none"
                   {...field}
+                  value={field.value ?? ""} // Ensure value is never null/undefined for textarea
                   disabled={isLoading}
                 />
               </FormControl>
@@ -311,7 +320,7 @@ export function TaskForm({
             </Button>
           )}
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Saving..." : initialData ? "Save Changes" : "Create Task"}
+            {isLoading ? "Saving..." : processedInitialData ? "Save Changes" : "Create Task"}
           </Button>
         </div>
       </form>

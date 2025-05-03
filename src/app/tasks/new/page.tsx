@@ -1,40 +1,44 @@
-"use client"; // Needs client-side interactivity for form
+"use client";
 
+import * as React from "react";
+import { useRouter } from "next/navigation";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation"; // Use next/navigation for App Router
+import { createTask, CreateTaskInput } from "@/services/taskService"; // Import service function and type
 
 export default function NewTaskPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
 
-   // Placeholder function - replace with actual API call
-  const handleCreateTask = async (data: any) => {
-     console.log("Creating task:", data);
+  const handleCreateTask = async (data: CreateTaskInput) => {
+     console.log("Attempting to create task:", data);
      setIsLoading(true);
-     // Simulate API call
-     await new Promise(resolve => setTimeout(resolve, 1000));
-     setIsLoading(false);
 
-     // Replace with actual API call to create task
-     // try {
-     //   await createTaskApi(data); // Your API function
+     try {
+       // Ensure dueDate is either a Date object or null before sending
+       const taskDataToSend = {
+            ...data,
+            dueDate: data.dueDate instanceof Date ? data.dueDate : null,
+        };
+
+       const newTask = await createTask(taskDataToSend); // Use the service function
        toast({
          title: "Task Created",
-         description: "The new task has been successfully created.",
-         // variant: "success", // You might need to add a success variant to toast
+         description: `Task "${newTask.title}" has been successfully created.`,
        });
        router.push("/tasks"); // Redirect to tasks list after creation
-     // } catch (error) {
-     //   console.error("Failed to create task:", error);
-     //   setIsLoading(false);
-     //   toast({
-     //     title: "Error",
-     //     description: "Failed to create the task. Please try again.",
-     //     variant: "destructive",
-     //   });
-     // }
+     } catch (error) {
+       console.error("Failed to create task:", error);
+       setIsLoading(false);
+       toast({
+         title: "Error",
+         description: "Failed to create the task. Please try again.",
+         variant: "destructive",
+       });
+     }
+     // No finally block needed to set isLoading to false here,
+     // as it's handled in the catch or after successful navigation.
    };
 
   const handleCancel = () => {
@@ -48,9 +52,8 @@ export default function NewTaskPage() {
         onSubmit={handleCreateTask}
         onCancel={handleCancel}
         isLoading={isLoading}
+        // No initialData needed for create form
       />
     </div>
   );
 }
-
-import * as React from "react"; // Import React

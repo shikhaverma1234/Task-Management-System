@@ -1,88 +1,90 @@
-"use client"; // Needs client-side interactivity for form and data fetching
+"use client";
 
 import * as React from "react";
-import { useParams, useRouter } from "next/navigation"; // Use next/navigation for App Router
+import { useParams, useRouter } from "next/navigation";
 import { TaskForm } from "@/components/tasks/TaskForm";
 import { useToast } from "@/hooks/use-toast";
-import { Task } from "@/lib/types"; // Import Task type
+import { Task } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-
-// Placeholder fetch function - replace with actual API call
-async function fetchTask(taskId: string): Promise<Task | null> {
-  console.log("Fetching task:", taskId);
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 500));
-  // Find task in placeholder data (replace with actual fetch)
-   const tasks: Task[] = [
-     { id: '1', title: 'Design Homepage Mockup', description: 'Create wireframes and final design for the homepage.', dueDate: new Date(2024, 7, 15), priority: 'High', status: 'In Progress', createdAt: new Date(), updatedAt: new Date() },
-     { id: '2', title: 'Develop Authentication Flow', description: 'Implement user login and registration backend.', dueDate: new Date(2024, 7, 20), priority: 'High', status: 'To Do', createdAt: new Date(), updatedAt: new Date() },
-     { id: '3', title: 'Setup Database Schema', description: 'Define MongoDB schema for tasks and users.', dueDate: new Date(2024, 7, 10), priority: 'Medium', status: 'Done', createdAt: new Date(), updatedAt: new Date() },
-   ];
-  const task = tasks.find(t => t.id === taskId);
-  return task || null;
-}
-
-// Placeholder update function - replace with actual API call
-async function updateTask(taskId: string, data: any): Promise<void> {
-   console.log("Updating task:", taskId, data);
-   // Simulate API call
-   await new Promise(resolve => setTimeout(resolve, 1000));
-   // In a real app, this would make a PUT/PATCH request
-}
-
+import { Button } from "@/components/ui/button"; // Import Button
+import { getTaskById, updateTask, UpdateTaskInput } from "@/services/taskService"; // Import service functions
+import { Loader2 } from "lucide-react"; // Import Loader icon
 
 export default function EditTaskPage() {
   const router = useRouter();
   const params = useParams();
-  const taskId = params.taskId as string; // Get task ID from route params
+  const taskId = params.taskId as string;
   const { toast } = useToast();
 
   const [taskData, setTaskData] = React.useState<Task | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true); // Loading state for fetching
-  const [isSubmitting, setIsSubmitting] = React.useState(false); // Loading state for submitting
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [notFound, setNotFound] = React.useState(false); // State for not found
 
   React.useEffect(() => {
     if (taskId) {
       const loadTask = async () => {
         setIsLoading(true);
+        setNotFound(false); // Reset not found state on new load attempt
         try {
-          const data = await fetchTask(taskId);
+          const data = await getTaskById(taskId);
           if (!data) {
-            toast({
-              title: "Error",
-              description: "Task not found.",
-              variant: "destructive",
-            });
-            router.push("/tasks"); // Redirect if task not found
+             setNotFound(true); // Set not found state
+             toast({
+               title: "Task Not Found",
+               description: "Could not find the task you're trying to edit.",
+               variant: "destructive",
+             });
+             // Optionally redirect immediately, or let the component render the not found message
+             // router.push("/tasks");
           } else {
-            setTaskData(data);
+            // Ensure dueDate is a Date object if it exists, otherwise null
+            setTaskData({
+                ...data,
+                dueDate: data.dueDate ? new Date(data.dueDate) : null
+            });
           }
         } catch (error) {
            console.error("Failed to fetch task:", error);
            toast({
             title: "Error",
-            description: "Failed to load task data.",
+            description: "Failed to load task data. Please try again.",
             variant: "destructive",
            });
+           // Consider setting notFound here too if the error indicates it
         } finally {
            setIsLoading(false);
         }
       };
       loadTask();
+    } else {
+        // Handle case where taskId is missing from params (shouldn't normally happen with correct routing)
+        setIsLoading(false);
+        setNotFound(true);
+        toast({ title: "Error", description: "Task ID is missing.", variant: "destructive" });
     }
   }, [taskId, router, toast]);
 
-  const handleUpdateTask = async (data: any) => {
-     console.log("Updating task:", data);
+  const handleUpdateTask = async (data: UpdateTaskInput) => {
+     console.log("Attempting to update task:", taskId, data);
      setIsSubmitting(true);
      try {
-       await updateTask(taskId, data); // Your API function
+        // Ensure dueDate is either a Date object or null before sending
+        const taskDataToSend = {
+            ...data,
+            dueDate: data.dueDate instanceof Date ? data.dueDate : null,
+        };
+
+       const updatedTask = await updateTask(taskId, taskDataToSend); // Use the service function
+       if (!updatedTask) {
+          throw new Error("Update failed or task not found during update");
+       }
        toast({
          title: "Task Updated",
-         description: "The task has been successfully updated.",
-         // variant: "success",
+         description: `Task "${updatedTask.title}" has been successfully updated.`,
        });
-       router.push("/tasks"); // Redirect after update
+       router.push("/tasks"); // Redirect after successful update
+       router.refresh(); // Optional: Force refresh of the tasks page data
      } catch (error) {
        console.error("Failed to update task:", error);
        toast({
@@ -90,9 +92,9 @@ export default function EditTaskPage() {
          description: "Failed to update the task. Please try again.",
          variant: "destructive",
        });
-     } finally {
-       setIsSubmitting(false);
+        setIsSubmitting(false); // Ensure loading state is reset on error
      }
+     // No finally block needed here, handled in catch or after success redirect
    };
 
   const handleCancel = () => {
@@ -100,24 +102,34 @@ export default function EditTaskPage() {
   };
 
   if (isLoading) {
-    return <EditTaskSkeleton />; // Show skeleton loader while fetching
+    return <EditTaskSkeleton />;
   }
 
+  if (notFound) {
+     return (
+        <div className="text-center p-8 space-y-4">
+            <h1 className="text-2xl font-semibold text-destructive">Task Not Found</h1>
+            <p className="text-muted-foreground">The task you are looking for does not exist or could not be loaded.</p>
+            <Button onClick={() => router.push('/tasks')}>Go to Tasks List</Button>
+        </div>
+     );
+  }
+
+  // Should have taskData if not loading and not notFound
   if (!taskData) {
-     // This case should ideally be handled by the redirect in useEffect,
-     // but adding a fallback message.
-     return <div className="text-center p-8 text-destructive">Task not found or failed to load.</div>;
+     // Fallback for unexpected state, although should be covered by isLoading/notFound
+     return <div className="text-center p-8 text-destructive">An unexpected error occurred.</div>;
   }
 
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-semibold">Edit Task</h1>
+      <h1 className="text-2xl font-semibold">Edit Task: <span className="text-primary">{taskData.title}</span></h1>
       <TaskForm
         initialData={taskData}
         onSubmit={handleUpdateTask}
         onCancel={handleCancel}
-        isLoading={isSubmitting}
+        isLoading={isSubmitting} // Pass submitting state to the form
       />
     </div>
   );
@@ -128,8 +140,8 @@ export default function EditTaskPage() {
 function EditTaskSkeleton() {
     return (
         <div className="space-y-6 max-w-2xl mx-auto">
-            <Skeleton className="h-8 w-1/3" /> {/* Title heading skeleton */}
-            <div className="space-y-6">
+            <Skeleton className="h-8 w-2/3" /> {/* Title heading skeleton */}
+            <div className="space-y-6 pt-4"> {/* Add padding top */}
                 <div className="space-y-2">
                     <Skeleton className="h-4 w-1/6" /> {/* Label skeleton */}
                     <Skeleton className="h-10 w-full" /> {/* Input skeleton */}
@@ -138,7 +150,7 @@ function EditTaskSkeleton() {
                     <Skeleton className="h-4 w-1/6" /> {/* Label skeleton */}
                     <Skeleton className="h-20 w-full" /> {/* Textarea skeleton */}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2"> {/* Add padding top */}
                      <div className="space-y-2">
                         <Skeleton className="h-4 w-1/3" /> {/* Label skeleton */}
                         <Skeleton className="h-10 w-full" /> {/* Date picker skeleton */}
