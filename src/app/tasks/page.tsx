@@ -145,33 +145,34 @@ export default function TasksPage() {
     } finally {
       setIsDeleting(null); // Reset deleting state regardless of outcome
     }
-  }; // <-- Added missing closing brace here
+  };
 
-    // Handle selecting single task
-    const handleSelectTask = (taskId: string, checked: boolean | 'indeterminate') => {
-        setSelectedTasks(prevSelected => {
-            const newSelected = new Set(prevSelected);
-            if (checked === true) {
-                newSelected.add(taskId);
-            } else {
-                newSelected.delete(taskId);
-            }
-            return newSelected;
-        });
-    };
+  // Handle selecting single task
+  const handleSelectTask = (taskId: string, checked: boolean | 'indeterminate') => {
+      setSelectedTasks(prevSelected => {
+          const newSelected = new Set(prevSelected);
+          if (checked === true) {
+              newSelected.add(taskId);
+          } else {
+              newSelected.delete(taskId);
+          }
+          return newSelected;
+      });
+  };
 
-    // Handle selecting all tasks
-    const handleSelectAllTasks = (checked: boolean | 'indeterminate') => {
-        if (checked === true) {
-            const allTaskIds = new Set(filteredTasks.map(task => task.id));
-            setSelectedTasks(allTaskIds);
-        } else {
-            setSelectedTasks(new Set());
-        }
-    };
+  // Handle selecting all tasks
+  const handleSelectAllTasks = (checked: boolean | 'indeterminate') => {
+      if (checked === true) {
+          const allTaskIds = new Set(filteredTasks.map(task => task.id));
+          setSelectedTasks(allTaskIds);
+      } else {
+          setSelectedTasks(new Set());
+      }
+  };
 
-    const isAllSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
-    const isIndeterminate = selectedTasks.size > 0 && selectedTasks.size < filteredTasks.length;
+  const isAllSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
+  const isIndeterminate = selectedTasks.size > 0 && selectedTasks.size < filteredTasks.length;
+
 
   return (
     <div className="space-y-8">
@@ -419,4 +420,3 @@ export default function TasksPage() {
     </div>
   );
 }
-
