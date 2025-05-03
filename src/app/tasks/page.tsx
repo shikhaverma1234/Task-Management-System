@@ -142,7 +142,7 @@ export default function TasksPage() {
 
       return matchesSearch && matchesStatus && matchesPriority && matchesDueDate && matchesOverdue; // Include matchesOverdue
     });
-  }, [tasks, searchTerm, statusFilter, priorityFilter, dueDateFilter, isOverdueFilter]); // Added missing closing parenthesis and semicolon
+  }, [tasks, searchTerm, statusFilter, priorityFilter, dueDateFilter, isOverdueFilter]);
 
 
   // Handle Delete
@@ -212,6 +212,7 @@ export default function TasksPage() {
 
   const isAllSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
   const isIndeterminate = selectedTasks.size > 0 && selectedTasks.size < filteredTasks.length;
+  ; // Added semicolon to fix potential parsing issue before return
 
   return (
     <div className="space-y-8">
@@ -409,7 +410,7 @@ export default function TasksPage() {
                                 <Tooltip>
                                     <TooltipTrigger asChild>
                                         <AlertTriangle className="inline-block ml-1 h-4 w-4 text-destructive" />
-                                    </TooltipTrigger>
+                                     </TooltipTrigger>
                                     <TooltipContent>
                                         <p>Task is overdue!</p>
                                     </TooltipContent>
