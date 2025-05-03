@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Import useSearchParams
 import Link from 'next/link'; // Import Link
 import { format } from 'date-fns';
 import { PlusCircle, Filter, Search, Edit, Trash2, AlertTriangle, ArrowUp, ArrowDown, Circle, Clock, CheckCircle, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
@@ -25,28 +25,28 @@ import { buttonVariants } from '@/components/ui/button'; // Import buttonVariant
 
 
 // Helper Functions
-function getPriorityBadgeVariant(priority: TaskPriority): 'default' | 'secondary' | 'destructive' {
+function getPriorityBadgeVariant(priority: TaskPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (priority) {
     case 'High': return 'destructive';
     case 'Medium': return 'secondary';
-    case 'Low': return 'default'; // Use primary color theme
+    case 'Low': return 'default'; // Use primary color theme for Low
     default: return 'outline';
   }
 }
 
 function getStatusBadgeVariant(status: TaskStatus): 'default' | 'secondary' | 'outline' {
    switch (status) {
-    case 'Done': return 'default'; // Using default which is themed green via globals.css chart-2
-    case 'In Progress': return 'secondary'; // Themed yellow/orange via globals.css chart-3?
-    case 'To Do': return 'outline';
+    case 'Done': return 'default'; // Use primary for Done
+    case 'In Progress': return 'secondary'; // Use secondary for In Progress
+    case 'To Do': return 'outline'; // Use outline for To Do
     default: return 'outline';
   }
 }
 
 function getStatusIcon(status: TaskStatus) {
     switch (status) {
-        case 'Done': return <CheckCircle className="h-4 w-4 text-[hsl(var(--chart-2))]" />; // Use chart-2 green
-        case 'In Progress': return <Clock className="h-4 w-4 text-[hsl(var(--chart-3))]" />; // Use chart-3 yellow/orange
+        case 'Done': return <CheckCircle className="h-4 w-4 text-green-500" />; // Explicit green
+        case 'In Progress': return <Clock className="h-4 w-4 text-yellow-500" />; // Explicit yellow
         case 'To Do': return <Circle className="h-4 w-4 text-muted-foreground" />;
         default: return null;
     }
@@ -55,7 +55,7 @@ function getStatusIcon(status: TaskStatus) {
 function getPriorityIcon(priority: TaskPriority) {
     switch (priority) {
         case 'High': return <AlertTriangle className="h-4 w-4 text-destructive" />; // Use destructive red
-        case 'Medium': return <ArrowUp className="h-4 w-4 text-[hsl(var(--chart-3))]" />; // Use chart-3 yellow/orange
+        case 'Medium': return <ArrowUp className="h-4 w-4 text-yellow-500" />; // Explicit yellow
         case 'Low': return <ArrowDown className="h-4 w-4 text-primary" />; // Use primary blue
         default: return null;
     }
@@ -64,18 +64,44 @@ function getPriorityIcon(priority: TaskPriority) {
 
 export default function TasksPage() {
   const router = useRouter();
+  const searchParams = useSearchParams(); // Get search params
   const { toast } = useToast();
 
   const [tasks, setTasks] = React.useState<Task[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDeleting, setIsDeleting] = React.useState<string | null>(null); // Store ID of task being deleted
 
-  // State for filters
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState<TaskStatus | 'all'>('all');
-  const [priorityFilter, setPriorityFilter] = React.useState<TaskPriority | 'all'>('all');
-  const [dueDateFilter, setDueDateFilter] = React.useState<Date | null>(null);
+  // Read filters from URL params on initial load
+  const initialStatusFilter = searchParams.get('status') as TaskStatus | 'all' | null ?? 'all';
+  const initialPriorityFilter = searchParams.get('priority') as TaskPriority | 'all' | null ?? 'all';
+  const initialDueDateStr = searchParams.get('dueDate');
+  const initialDueDateFilter = initialDueDateStr ? new Date(initialDueDateStr) : null;
+  const initialSearchTerm = searchParams.get('search') ?? '';
+  const initialIsOverdue = searchParams.get('overdue') === 'true'; // Check for overdue param
+
+
+  // State for filters - initialized from URL params
+  const [searchTerm, setSearchTerm] = React.useState(initialSearchTerm);
+  const [statusFilter, setStatusFilter] = React.useState<TaskStatus | 'all'>(initialStatusFilter);
+  const [priorityFilter, setPriorityFilter] = React.useState<TaskPriority | 'all'>(initialPriorityFilter);
+  const [dueDateFilter, setDueDateFilter] = React.useState<Date | null>(initialDueDateFilter);
+   const [isOverdueFilter, setIsOverdueFilter] = React.useState<boolean>(initialIsOverdue); // State for overdue filter
+
   const [selectedTasks, setSelectedTasks] = React.useState<Set<string>>(new Set());
+
+  // Update URL when filters change
+   React.useEffect(() => {
+        const params = new URLSearchParams();
+        if (searchTerm) params.set('search', searchTerm);
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (priorityFilter !== 'all') params.set('priority', priorityFilter);
+        if (dueDateFilter) params.set('dueDate', format(dueDateFilter, 'yyyy-MM-dd'));
+        if (isOverdueFilter) params.set('overdue', 'true'); // Add overdue to params
+
+        // Use router.replace to update URL without adding to history
+        router.replace(`/tasks?${params.toString()}`);
+    }, [searchTerm, statusFilter, priorityFilter, dueDateFilter, isOverdueFilter, router]);
+
 
   // Fetch tasks on component mount
   React.useEffect(() => {
@@ -107,13 +133,16 @@ export default function TasksPage() {
                             task.description?.toLowerCase().includes(lowerSearchTerm);
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-      // Ensure dueDate is handled correctly - convert to Date object if it's not already
       const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
       const matchesDueDate = !dueDateFilter || (taskDueDate && format(taskDueDate, 'yyyy-MM-dd') === format(dueDateFilter, 'yyyy-MM-dd'));
 
-      return matchesSearch && matchesStatus && matchesPriority && matchesDueDate;
+      // Apply overdue filter if active
+      const isTaskOverdue = taskDueDate && taskDueDate < new Date() && task.status !== 'Done';
+      const matchesOverdue = !isOverdueFilter || isTaskOverdue;
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesDueDate && matchesOverdue; // Include matchesOverdue
     });
-  }, [tasks, searchTerm, statusFilter, priorityFilter, dueDateFilter]);
+  }, [tasks, searchTerm, statusFilter, priorityFilter, dueDateFilter, isOverdueFilter]); // Added missing closing parenthesis and semicolon
 
 
   // Handle Delete
@@ -170,9 +199,19 @@ export default function TasksPage() {
       }
   };
 
+    // Reset all filters
+    const clearFilters = () => {
+        setSearchTerm('');
+        setStatusFilter('all');
+        setPriorityFilter('all');
+        setDueDateFilter(null);
+        setIsOverdueFilter(false); // Reset overdue filter as well
+        // URL will update via the useEffect hook
+    };
+
+
   const isAllSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
   const isIndeterminate = selectedTasks.size > 0 && selectedTasks.size < filteredTasks.length;
-
 
   return (
     <div className="space-y-8">
@@ -188,20 +227,28 @@ export default function TasksPage() {
       {/* Search and Filter Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg"> {/* Slightly smaller title */}
-            <Filter className="h-5 w-5" />
-            Filter & Search Tasks
+          <CardTitle className="flex items-center justify-between text-lg"> {/* Use justify-between */}
+             <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filter & Search Tasks
+             </div>
+              {/* Clear Filters Button */}
+              {(searchTerm || statusFilter !== 'all' || priorityFilter !== 'all' || dueDateFilter || isOverdueFilter) && (
+                 <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    Clear Filters
+                 </Button>
+              )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col md:flex-row gap-4 items-center">
+        <CardContent className="flex flex-col md:flex-row gap-4 items-center flex-wrap"> {/* Allow wrapping */}
           <Input
             placeholder="Search by title or description..."
-            className="flex-grow"
+            className="flex-grow min-w-[150px]"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <Select onValueChange={(value) => setStatusFilter(value as TaskStatus | 'all')} value={statusFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
+            <SelectTrigger className="w-full md:w-auto min-w-[150px]"> {/* Adjust width */}
               <SelectValue placeholder="Filter by Status" />
             </SelectTrigger>
             <SelectContent>
@@ -212,7 +259,7 @@ export default function TasksPage() {
             </SelectContent>
           </Select>
           <Select onValueChange={(value) => setPriorityFilter(value as TaskPriority | 'all')} value={priorityFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
+            <SelectTrigger className="w-full md:w-auto min-w-[150px]"> {/* Adjust width */}
               <SelectValue placeholder="Filter by Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -227,7 +274,7 @@ export default function TasksPage() {
                   <Button
                       variant={"outline"}
                       className={cn(
-                          "w-full md:w-[240px] justify-start text-left font-normal",
+                          "w-full md:w-auto min-w-[200px] justify-start text-left font-normal", // Adjust width
                           !dueDateFilter && "text-muted-foreground"
                       )}
                   >
@@ -242,7 +289,6 @@ export default function TasksPage() {
                       onSelect={setDueDateFilter} // Allow selecting a date
                       initialFocus
                   />
-                  {/* Optional: Button to clear the date filter */}
                   {dueDateFilter && (
                     <Button
                         variant="ghost"
@@ -255,6 +301,20 @@ export default function TasksPage() {
                     )}
               </PopoverContent>
           </Popover>
+           {/* Overdue Filter Checkbox */}
+            <div className="flex items-center space-x-2 pt-1 md:pt-0">
+                 <Checkbox
+                     id="overdue-filter"
+                     checked={isOverdueFilter}
+                     onCheckedChange={(checked) => setIsOverdueFilter(Boolean(checked))}
+                 />
+                <label
+                     htmlFor="overdue-filter"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 whitespace-nowrap"
+                 >
+                    Only Overdue
+                 </label>
+             </div>
         </CardContent>
       </Card>
 
@@ -262,7 +322,6 @@ export default function TasksPage() {
       <Card>
         <CardHeader>
            <CardTitle>Task List ({filteredTasks.length})</CardTitle>
-            {/* Optional: Add bulk actions based on selectedTasks */}
             {selectedTasks.size > 0 && (
                 <div className="text-sm text-muted-foreground mt-2">
                     {selectedTasks.size} task(s) selected. {/* Add bulk action buttons here */}
@@ -302,12 +361,7 @@ export default function TasksPage() {
                       <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                         No tasks found matching your criteria.
                         {tasks.length > 0 && ( // Only show if there ARE tasks, but none match filters
-                            <Button variant="link" onClick={() => {
-                                setSearchTerm('');
-                                setStatusFilter('all');
-                                setPriorityFilter('all');
-                                setDueDateFilter(null);
-                            }}>
+                            <Button variant="link" onClick={clearFilters}>
                                 Clear Filters
                             </Button>
                         )}
@@ -320,8 +374,8 @@ export default function TasksPage() {
                     </TableRow>
                   ) : (
                     filteredTasks.map((task) => {
-                      // Ensure dueDate is a Date object for comparison and formatting
                       const taskDueDate = task.dueDate ? new Date(task.dueDate) : null;
+                      const isTaskOverdue = taskDueDate && taskDueDate < new Date() && task.status !== 'Done';
 
                       return (
                       <TableRow key={task.id} data-state={selectedTasks.has(task.id) ? "selected" : undefined}>
@@ -348,10 +402,9 @@ export default function TasksPage() {
                             {task.priority}
                           </Badge>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap"> {/* Prevent wrapping */}
+                        <TableCell className={cn("whitespace-nowrap", isTaskOverdue ? 'text-destructive' : '')}> {/* Apply red color if overdue */}
                           {taskDueDate ? format(taskDueDate, 'PP') : <span className="text-muted-foreground">N/A</span>}
-                          {/* Add overdue indicator */}
-                          {taskDueDate && taskDueDate < new Date() && task.status !== 'Done' && (
+                          {isTaskOverdue && (
                             <TooltipProvider>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
