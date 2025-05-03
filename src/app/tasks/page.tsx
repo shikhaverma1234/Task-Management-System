@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Task, TaskPriority, TaskStatus } from '@/lib/types';
 import { getTasks, deleteTask } from '@/services/taskService'; // Import service functions
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { buttonVariants } from '@/components/ui/button'; // Import buttonVariants for AlertDialog styling
 
 
@@ -145,7 +145,7 @@ export default function TasksPage() {
     } finally {
       setIsDeleting(null); // Reset deleting state regardless of outcome
     }
-  };
+  }; // <-- Added missing closing brace here
 
     // Handle selecting single task
     const handleSelectTask = (taskId: string, checked: boolean | 'indeterminate') => {
@@ -172,7 +172,6 @@ export default function TasksPage() {
 
     const isAllSelected = filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length;
     const isIndeterminate = selectedTasks.size > 0 && selectedTasks.size < filteredTasks.length;
-
 
   return (
     <div className="space-y-8">
@@ -420,3 +419,4 @@ export default function TasksPage() {
     </div>
   );
 }
+
